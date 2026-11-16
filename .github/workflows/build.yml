@@ -1,0 +1,40 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# VELVET MOTION for the M-VAVE FM-1: build the installable package on GitHub.
+# Runs on every push and from the Actions tab ("Run workflow"). The package is the run's
+# "velvet-motion-fm1" artifact: build/felucca.fwsc.
+name: build
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  firmware:
+    runs-on: ubuntu-22.04          # x86-64 Linux: JieLi's toolchain runs natively, no Docker
+    steps:
+      - uses: actions/checkout@v4      # (the engines and the bsp are plain files in this repository, not submodules)
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Python packages
+        run: pip install Pillow fonttools
+      - name: JieLi toolchain (clang for pi32v2, from JieLi's package server)
+        run: tools/get_toolchain.sh "$HOME/.jieli"
+      - name: JieLi AC79 SDK (three boot files of it go in the package)
+        run: |
+          git clone --depth 1 --branch AC79NN_SDK_V1.2.1_2023-12-13 \
+              https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$HOME/fw-AC79_AIoT_SDK"
+      - name: Build (stops if the image, RAM or pool does not fit the FM-1)
+        run: ./build.sh
+      - name: Host tests (sound, screens, sequencer; Felucca's suite with the VELVET additions)
+        run: tests/run_tests.sh
+        continue-on-error: true    # the package above is uploaded either way; read this step's log before installing
+      - uses: actions/upload-artifact@v4
+        with:
+          name: velvet-motion-fm1
+          path: |
+            build/felucca.fwsc
+            build/felucca.bin
+            LICENSE
+            LICENSING.md
+            LICENSES/
+            VELVET-MOTION.md
+          if-no-files-found: error
