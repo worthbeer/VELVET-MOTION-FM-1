@@ -201,6 +201,32 @@ def ld_regions():
     return regs
 
 
+MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def format_build_date(epoch):
+    """An epoch (seconds, UTC) as "Mmm dd yyyy" with the day space-padded: what the compiler's __DATE__ gives, in
+    English whatever the locale, so the text is the same width as before."""
+    import datetime
+    d = datetime.datetime.fromtimestamp(int(epoch), datetime.timezone.utc)
+    return f"{MONTHS[d.month - 1]} {d.day:2d} {d.year:04d}"
+
+
+def build_date():
+    """The date the ABOUT page shows, fixed per source: SOURCE_DATE_EPOCH if set, else the date of the git commit
+    being built, else None (the firmware then uses __DATE__, and two builds of one commit can differ in that text)."""
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch is None:
+        try:
+            epoch = subprocess.run(["git", "-C", str(SRC), "log", "-1", "--format=%ct"], capture_output=True,
+                                   text=True, check=True).stdout.strip()
+        except (OSError, subprocess.CalledProcessError):
+            epoch = ""
+    if not epoch.isdigit():
+        return None
+    return format_build_date(epoch)
+
+
 def build_app():
     flags = [*CFLAGS, *HAL_INC, "-Ifirmware/src", "-Ibuild/gen"]
     for flag in ("FELUCCA_FLASH", "FELUCCA_OTA", "FELUCCA_OTA_DRYRUN", "FELUCCA_OTA_RAMONLY", "FELUCCA_CDC",
@@ -213,6 +239,11 @@ def build_app():
     if v in ("0", "1", "2", "3"):
         flags.append(f"-DFELUCCA_USB_LAYOUT={v}")
     flags.append(f'-DFELUCCA_ID="{PRODUCT}"')
+    bdate = build_date()
+    if bdate:
+        flags.append(f'-DFELUCCA_BUILD_DATE="{bdate}"')
+    else:
+        print("build: no SOURCE_DATE_EPOCH and no git commit: the ABOUT page's date is the compiler's (not reproducible)")
     if VERSION:
         flags.append(f'-DFELUCCA_VERSION="{VERSION}"')
     # felucca.c goes to LLVM IR without the optimizer, the main-loop functions (UI, stores, editor) are

@@ -118,6 +118,13 @@ static int32_t menu_text(const char *s, int32_t y, uint16_t col, int draw)
     return y;
 }
 
+#ifndef FELUCCA_BUILD_DATE
+/* The date shown on the ABOUT page. tools/build.py passes a fixed one ("Mmm dd yyyy", as __DATE__ is) taken from
+ * SOURCE_DATE_EPOCH or the commit, so two builds of one commit are byte for byte the same; without it (host tests,
+ * a build with no git and no SOURCE_DATE_EPOCH) it is the compiler's own date. */
+#define FELUCCA_BUILD_DATE __DATE__
+#endif
+
 static int32_t menu_document(int32_t y, int draw)
 {
     uint32_t i;
@@ -125,7 +132,7 @@ static int32_t menu_document(int32_t y, int draw)
         cv_text(6, y + 2, &AF_L, "FELUCCA", T_THEME);
         cv_text(6, y + 38, &AF_S, "Multi-engine synthesizer", T_TEXT);
         cv_text(6, y + 58, &AF_M, FELUCCA_VERSION, T_THEME);
-        cv_text_r(232, y + 61, &AF_S, __DATE__, T_MID, T_BG);
+        cv_text_r(232, y + 61, &AF_S, FELUCCA_BUILD_DATE, T_MID, T_BG);
         cv_text(6, y + 82, &AF_S, "(C) 2026 Leo Kuroshita", T_TEXT);
         cv_text(6, y + 100, &AF_S, "H\xFCgelton Instruments", T_TEXT);
         cv_text(6, y + 118, &AF_S, "GPL-3.0-only", T_TEXT);
